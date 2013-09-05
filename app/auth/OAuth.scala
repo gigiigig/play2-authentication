@@ -26,7 +26,7 @@ trait OAuth extends Loggable {
 
   def clientSecretParam(provider: OAuthProvider) = "client_secret" -> Seq(provider.CLIENT_SECRET)
 
-  def redirectUriParam(request: Request[AnyContent], provider: OAuthProvider) = "redirect_uri" -> Seq(redirectUrl(provider.NAME))
+  def redirectUriParam(request: Request[AnyContent], provider: OAuthProvider) = "redirect_uri" -> Seq(redirectUrl(provider.NAME).absoluteURL(true)(request))
 
   def codeQuery(request: Request[AnyContent], provider: OAuthProvider) =
     Map(clientIdParam(provider),
@@ -93,7 +93,7 @@ trait OAuth extends Loggable {
    * @param provider
    * @return
    */
-  def redirectUrl(provider: String) : String
+  def redirectUrl(provider: String): Call
 
 }
 
@@ -108,8 +108,11 @@ trait OAuthProvider {
   def NAME: String
 
   def OAUTH2_CODE_URL: String
+
   def OAUTH2_TOKEN_URL: String
+
   def CLIENT_ID: String = current.configuration.getString(s"oauth2.provider.${NAME}.clientId").getOrElse("")
+
   def CLIENT_SECRET: String = current.configuration.getString(s"oauth2.provider.${NAME}.clientSecret").getOrElse("")
 
   /**
@@ -182,6 +185,7 @@ object NotProvider extends OAuthProvider {
   def NAME = "not_provider"
 
   def OAUTH2_CODE_URL: String = ???
+
   def OAUTH2_TOKEN_URL: String = ???
 
   def getEmail(response: ws.Response): String = ???
