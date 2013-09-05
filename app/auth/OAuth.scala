@@ -26,7 +26,11 @@ trait OAuth extends Loggable {
 
   def clientSecretParam(provider: OAuthProvider) = "client_secret" -> Seq(provider.CLIENT_SECRET)
 
-  def redirectUriParam(request: Request[AnyContent], provider: OAuthProvider) = "redirect_uri" -> Seq(redirectUrl(provider.NAME).absoluteURL(true)(request))
+  def redirectUriParam(request: Request[AnyContent], provider: OAuthProvider) = {
+    val url = redirectUrl(provider.NAME).absoluteURL(false)(request)
+    log debug s"redirect url : $url"
+    "redirect_uri" -> Seq(url)
+  }
 
   def codeQuery(request: Request[AnyContent], provider: OAuthProvider) =
     Map(clientIdParam(provider),
