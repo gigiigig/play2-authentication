@@ -16,7 +16,7 @@ It provides just some methods for secure Action access,
 there are some helpers:
 
     withUser[User] {
-        Ok("is is secured")
+        Ok("it is secured")
     }
 
 To use it just mix in you database access class the trait
