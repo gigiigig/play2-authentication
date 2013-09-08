@@ -63,7 +63,7 @@ And implement the function redirectUrl returning the oauth route
     def redirectUrl(provider: String): Call = routes.AuthController.oauth(provider)
 
 Now implement the function useEmail, this function will be called after the user authentication,
-and will pass as parameters the user email as and the authentication provider, example:
+and will pass as parameters the user email and the authentication provider, example:
 
     override def useEmail(email: String, provider: String): Result = {
         log.debug(s"user $email logged in with $provider")
