@@ -5,10 +5,12 @@ import org.gg.play.authentication.misc.Loggable
 import play.api.mvc._
 import play.api.mvc.Results._
 import play.api.test.Helpers._
-import play.api.test.{WithApplication, FakeApplication, FakeRequest}
+import play.api.test.{WithApplication, FakeRequest}
 import play.api.test.FakeApplication
-import scala.Some
-import play.api.libs.iteratee.Iteratee
+
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.NotImplementedError
 
 /**
  * Created with IntelliJ IDEA.
@@ -16,9 +18,9 @@ import play.api.libs.iteratee.Iteratee
  * Date: 06/09/13
  * Time: 14:18
  */
-class SecuredSpec extends Specification with Loggable {
+class SecuredSpec extends Specification with Loggable with DeactivatedTimeConversions {
 
-  val username: String = "test@gmail.it"
+  import FakeUsersRetriever._
 
   "Secured Spec".title
 
@@ -53,51 +55,80 @@ class SecuredSpec extends Specification with Loggable {
 
   "#withAuthBase" should {
 
-    val result = SecuredController.withAuthBase({
-      username => request => Ok(username)
-    })
-
-    "call onUnauthorized if username return None" in fakeApp {
-
-      SecuredController.withAuthBase({
+    def sendRequest(request: RequestHeader) = {
+      Await.result(SecuredController.withAuthBase({
         username => request => Ok(username)
-      })(FakeRequest()) must throwAn[NotImplementedError]
-
+      })(request).run, 3 seconds)
     }
 
-    "return the action returned from the function f" in fakeApp {
-       pending
+    "call onUnauthorized if username return None" in fakeApp {
+      sendRequest(FakeRequest()) must throwA[NotImplementedError]
+    }
+
+    "return the action returned from the function f() if username exist" in fakeApp {
+
+      val request = sendRequest(FakeRequest().withSession(Security.username -> username))
+      status(request) mustEqual OK
+      contentAsString(request) mustEqual username
+
     }
 
   }
 
+  "#withUserBase" should {
 
-  object SecuredController extends Controller with Secured {
-    def secureUsersRetriever: SecureUsersRetriever = FakeUsersRetriever
+    def sendRequest(request: RequestHeader) = {
+      Await.result(SecuredController.withUserBase[SecureUser]()({
+        user => request => Ok(user.email)
+      })(request).run, 3 seconds)
+    }
 
-    /**
-     * This function is called when user is not authorized,
-     * because probably we want a redirect, we leave the controller to imlpement that
-     * function
-     *
-     * @param request
-     * @return
-     */
-    def onUnauthorized(request: RequestHeader): Result = ???
+    "call onUnauthorized if username return None" in fakeApp {
+      sendRequest(FakeRequest()) must throwA[NotImplementedError]
+    }
+
+    "call f() with the user loaded from database and return the f() action" in fakeApp {
+      pending
+    }
+
   }
 
   def fakeApp = new WithApplication(FakeApplication()) {}
 
-  object FakeUsersRetriever extends SecureUsersRetriever {
-    def findByEmail(email: String): Option[SecureUser] = ???
 
-    def findByRemember(cookie: String): Option[SecureUser] = Some(new SecureUser {
-      def isAdmin: Boolean = false
+}
 
-      def email: String = username
 
-      def id: Option[Int] = Some(1)
-    })
-  }
+object SecuredController extends Controller with Secured {
+  def secureUsersRetriever: SecureUsersRetriever = FakeUsersRetriever
 
+  /**
+   * This function is called when user is not authorized,
+   * because probably we want a redirect, we leave the controller to imlpement that
+   * function
+   *
+   * @param request
+   * @return
+   */
+  def onUnauthorized(request: RequestHeader): Result = ???
+}
+
+object FakeUsersRetriever extends SecureUsersRetriever {
+
+  val username: String = "test@gmail.it"
+
+  def findByEmail(email: String): Option[SecureUser] = ???
+
+  def findByRemember(cookie: String): Option[SecureUser] = Some(new SecureUser {
+    def isAdmin: Boolean = false
+
+    def email: String = username
+
+    def id: Option[Int] = Some(1)
+  })
+
+}
+
+trait DeactivatedTimeConversions extends org.specs2.time.TimeConversions {
+  override def intToRichLong(v: Int) = super.intToRichLong(v)
 }
