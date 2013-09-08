@@ -11,11 +11,9 @@ import org.gg.play.authentication.misc.Loggable
 
 
 /**
- * Created with IntelliJ IDEA.
  * User: luigi
  * Date: 05/09/13
  * Time: 11:50
- * To change this template use File | Settings | File Templates.
  */
 trait Secured extends BodyParsers with Loggable {
 

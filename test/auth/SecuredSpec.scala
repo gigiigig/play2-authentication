@@ -13,7 +13,6 @@ import scala.concurrent.duration._
 import scala.NotImplementedError
 
 /**
- * Created with IntelliJ IDEA.
  * User: luigi
  * Date: 06/09/13
  * Time: 14:18
