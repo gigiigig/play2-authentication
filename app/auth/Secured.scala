@@ -115,15 +115,15 @@ trait Secured extends BodyParsers with Loggable {
    * retrieved from the session or from the remember cookie
    *
    * @param f
-   * @param authF
+   * @param unauthF
    * @param parser
    * @return
    */
   def withAuthBase(f: => String => Request[_ >: AnyContent] => Result,
-                   authF: RequestHeader => Result = onUnauthorized,
+                   unauthF: RequestHeader => Result = onUnauthorized,
                    parser: BodyParser[_ >: AnyContent] = parse.anyContent): EssentialAction = {
 
-    Security.Authenticated(username, authF) {
+    Security.Authenticated(username, unauthF) {
       user =>
         Action(parser)(request => f(user)(request))
     }
@@ -138,14 +138,14 @@ trait Secured extends BodyParsers with Loggable {
    * Don't use this function directly,
    * use on of the withUser implementation
    *
-   * @param authF
+   * @param unauthF
    * @param parser
    * @param userFilter
    * @param f
    * @tparam T
    * @return
    */
-  def withUserBase[T <: SecureUser](authF: RequestHeader => Result = onUnauthorized,
+  def withUserBase[T <: SecureUser](unauthF: RequestHeader => Result = onUnauthorized,
                                     parser: BodyParser[_ >: AnyContent] = parse.anyContent,
                                     userFilter: SecureUser => Boolean = _ => true)
                                    (f: T => Request[_ >: AnyContent] => Result): EssentialAction = {
@@ -155,8 +155,8 @@ trait Secured extends BodyParsers with Loggable {
         secureUsersRetriever.findByEmail(username).filter(userFilter).map {
           user =>
             f(user.asInstanceOf[T])(request)
-        }.getOrElse(authF(request))
-    }, authF, parser)
+        }.getOrElse(unauthF(request))
+    }, unauthF, parser)
 
   }
 

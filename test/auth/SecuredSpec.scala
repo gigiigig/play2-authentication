@@ -113,6 +113,13 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
       contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
     }
 
+    "call unauthF() if it is passed as parameter when user is NOT authorized" in fakeApp {
+      val response = sendRequest(FakeRequest(), SecuredController.withUserBase[SecureUser](
+        unauthF = request => BadRequest
+      )(f))
+      status(response) mustEqual BAD_REQUEST
+    }
+
   }
 
   def fakeApp = new WithApplication(FakeApplication()) {}
