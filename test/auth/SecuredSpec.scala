@@ -21,6 +21,8 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
 
   import FakeUsersRetriever._
 
+  def testSession = Security.username -> username
+
   "Secured Spec".title
 
   "#username" should {
@@ -31,7 +33,7 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
 
     "return Some(username) if username is in session" in fakeApp {
       SecuredController.username(FakeRequest()
-        .withSession(Security.username -> username)) mustEqual Some(username)
+        .withSession(testSession)) mustEqual Some(username)
     }
 
     "return Some(username) if username is in remember cookie" in fakeApp {
@@ -61,33 +63,54 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
     }
 
     "call onUnauthorized if username return None" in fakeApp {
-      sendRequest(FakeRequest()) must throwA[NotImplementedError]
+      status(sendRequest(FakeRequest())) mustEqual NOT_IMPLEMENTED
     }
 
     "return the action returned from the function f() if username exist" in fakeApp {
-
-      val request = sendRequest(FakeRequest().withSession(Security.username -> username))
-      status(request) mustEqual OK
-      contentAsString(request) mustEqual username
-
+      val response = sendRequest(FakeRequest().withSession(testSession))
+      status(response) mustEqual OK
+      contentAsString(response) mustEqual username
     }
 
   }
 
   "#withUserBase" should {
 
-    def sendRequest(request: RequestHeader) = {
-      Await.result(SecuredController.withUserBase[SecureUser]()({
-        user => request => Ok(user.email)
-      })(request).run, 3 seconds)
+    val f: (SecureUser) => (Request[_ >: AnyContent]) => SimpleResult[String] = {
+      user => request => Ok(user.email)
+    }
+
+    val action: EssentialAction = SecuredController.withUserBase[SecureUser]()(f)
+
+    def sendRequest(request: RequestHeader, action: EssentialAction = action) = {
+      Await.result(action(request).run, 3 seconds)
     }
 
     "call onUnauthorized if username return None" in fakeApp {
-      sendRequest(FakeRequest()) must throwA[NotImplementedError]
+      status(sendRequest(FakeRequest())) mustEqual NOT_IMPLEMENTED
     }
 
-    "call f() with the user loaded from database and return the f() action" in fakeApp {
-      pending
+    "call f(user) with the user loaded from database and return the f() => Action" in fakeApp {
+      val response = sendRequest(FakeRequest().withSession(testSession))
+      status(response) mustEqual OK
+      contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
+    }
+
+    "call onUnauthorized if userFilter() function NOT validate the user" in fakeApp {
+      status(sendRequest(FakeRequest().withSession(testSession),
+        SecuredController.withUserBase[SecureUser](userFilter = {
+          _ => false
+        })(f))) mustEqual NOT_IMPLEMENTED
+    }
+
+    "call f(user) if userFilter() function validate the user" in fakeApp {
+      val response: Result = sendRequest(FakeRequest().withSession(testSession),
+        SecuredController.withUserBase[SecureUser](userFilter = {
+          _ => true
+        })(f))
+
+      status(response) mustEqual OK
+      contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
     }
 
   }
@@ -109,16 +132,18 @@ object SecuredController extends Controller with Secured {
    * @param request
    * @return
    */
-  def onUnauthorized(request: RequestHeader): Result = ???
+  def onUnauthorized(request: RequestHeader): Result = NotImplemented
 }
 
 object FakeUsersRetriever extends SecureUsersRetriever {
 
   val username: String = "test@gmail.it"
 
-  def findByEmail(email: String): Option[SecureUser] = ???
+  def findByEmail(email: String): Option[SecureUser] = fakeUser
 
-  def findByRemember(cookie: String): Option[SecureUser] = Some(new SecureUser {
+  def findByRemember(cookie: String): Option[SecureUser] = fakeUser
+
+  def fakeUser = Some(new SecureUser {
     def isAdmin: Boolean = false
 
     def email: String = username
