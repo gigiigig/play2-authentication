@@ -11,13 +11,14 @@ import play.api.test.FakeApplication
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.NotImplementedError
+import auth.BaseSpec
 
 /**
  * User: luigi
  * Date: 06/09/13
  * Time: 14:18
  */
-class SecuredSpec extends Specification with Loggable with DeactivatedTimeConversions {
+class SecuredSpec extends Specification with Loggable with DeactivatedTimeConversions with BaseSpec {
 
   import FakeUsersRetriever._
 
@@ -121,9 +122,6 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
     }
 
   }
-
-  def fakeApp = new WithApplication(FakeApplication()) {}
-
 
 }
 
