@@ -31,7 +31,7 @@ trait Secured extends BodyParsers with Loggable {
    */
   def username(request: RequestHeader): Option[String] = {
 
-    val remoteAddress = s"    ip : ${request.remoteAddress}"
+    val remoteAddress = s"  ip : ${request.remoteAddress}"
 
     request.session.get(Security.username) match {
       case username: Some[String] =>
@@ -41,8 +41,9 @@ trait Secured extends BodyParsers with Loggable {
         request.cookies.get(COOKIE_REMEMBER_ME) match {
           case None => None
           case Some(cookie) =>
-            log debug "username from cookie : " + cookie.value + remoteAddress
-            secureUsersRetriever.findByRemember(cookie.value).map(_.email)
+            val email = secureUsersRetriever.findByRemember(cookie.value).map(_.email)
+            log debug "username from cookie : " + email.getOrElse("email not found") + "  cookie : " + cookie.value + remoteAddress
+            email
         }
     }
   }
