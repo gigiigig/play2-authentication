@@ -2,12 +2,13 @@ package org.gg.play.authentication.auth
 
 import org.specs2.mutable._
 import org.gg.play.authentication.misc.Loggable
-import play.api.mvc.{Result, Call}
 
-import play.api.mvc.Results._
 import auth.BaseSpec
-import oauth.signpost.OAuthProvider
-import play.api.libs.ws.Response
+import play.api.mvc._
+import play.api.mvc.Results._
+import play.api.test.Helpers._
+import play.api.test.{WithApplication, FakeRequest}
+import play.api.test.FakeApplication
 
 /**
  * User: luigi
@@ -51,6 +52,30 @@ class OAuthSpec extends Specification with Loggable with BaseSpec {
       (OAuthController.clientSecretParam(NotProvider)._2)(0) mustEqual fakeAppClientSecret
 
     }
+
+  }
+
+  "oauth" should {
+
+    "return BadRequest if provider is not recognized" in fakeApp {
+      val response = OAuthController.oauth("wrong_provider")(FakeRequest())
+      status(response) mustEqual BAD_REQUEST
+      contentAsString(response) mustEqual "provider not exist"
+    }
+
+    "redirect to OAUTH2_CODE_URL if provider exist and code is not in query string" in fakeApp {
+      val provider = GoogleProvider
+      val response = OAuthController.oauth(provider.NAME)(FakeRequest())
+      status(response) mustEqual SEE_OTHER
+      redirectLocation(response).get must startWith(provider.OAUTH2_CODE_URL)
+    }
+
+    "call useEmail method with email retrived from provider getEmail method" in fakeApp {
+      pending("how to test ?")
+      val testEmail = "test@test.com"
+      val provider = GoogleProvider
+      (OAuthController.oauth(provider.NAME)(FakeRequest().withFormUrlEncodedBody("code" -> "ciao"))) mustEqual NOT_IMPLEMENTED
+    } 
 
   }
 
