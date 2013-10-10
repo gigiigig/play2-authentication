@@ -47,9 +47,9 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
 
   "#onUnauthorizedRest" should {
 
-    """return OK status with "not authorized" message""" in fakeApp {
+    """return UNAUTHORIZED status with "not authorized" message""" in fakeApp {
       val result: Result = SecuredController.onUnauthorizedRest(FakeRequest())
-      status(result) mustEqual OK
+      status(result) mustEqual UNAUTHORIZED
       contentAsString(result) mustEqual "not authorized"
     }
 

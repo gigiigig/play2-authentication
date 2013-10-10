@@ -67,7 +67,7 @@ trait Secured extends BodyParsers with Loggable {
    */
   def onUnauthorizedRest(request: RequestHeader): Result = {
     log.debug(s"on onUnauthorized ip : ${request.remoteAddress}")
-    Results.Ok("not authorized")
+    Results.Unauthorized("not authorized")
   }
 
   /**
