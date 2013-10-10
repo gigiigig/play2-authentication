@@ -18,6 +18,7 @@ import org.gg.play.authentication.misc.Loggable
 trait Secured extends BodyParsers with Loggable {
 
   val COOKIE_REMEMBER_ME: String = "PLAY_REMEMBER_ME"
+  val UNAUTHORIZED_REST = "not authorized"
 
   def secureUsersRetriever: SecureUsersRetriever
 
@@ -67,7 +68,7 @@ trait Secured extends BodyParsers with Loggable {
    */
   def onUnauthorizedRest(request: RequestHeader): Result = {
     log.debug(s"on onUnauthorized ip : ${request.remoteAddress}")
-    Results.Unauthorized("not authorized")
+    Results.Unauthorized(UNAUTHORIZED_REST)
   }
 
   /**
