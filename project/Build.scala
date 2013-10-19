@@ -15,7 +15,10 @@ object ApplicationBuild extends Build {
   )
 
   val main = play.Project(appName, appVersion, appDependencies).settings(
-    // Add your own project settings here
+    // Add your own project settings here    
+    publishTo <<= version {
+      case _ => Some(Resolver.file("Github Pages", Path.userHome / "Workspace" / "IdeaWorkspace" / "gigiigig.github.com" / "releases" asFile))
+    }
   )
 
 }
