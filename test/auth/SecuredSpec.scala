@@ -1,16 +1,14 @@
 package org.gg.play.authentication.auth
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 import org.specs2.mutable._
 import org.gg.play.authentication.misc.Loggable
 import play.api.mvc._
 import play.api.mvc.Results._
 import play.api.test.Helpers._
-import play.api.test.{WithApplication, FakeRequest}
-import play.api.test.FakeApplication
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.NotImplementedError
+import play.api.test.FakeRequest
 import auth.BaseSpec
 
 /**
@@ -40,9 +38,8 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
     "return Some(username) if username is in remember cookie" in fakeApp {
       SecuredController.username(FakeRequest()
         .withCookies(Cookie(
-        SecuredController.COOKIE_REMEMBER_ME, "cookievalue", Some(10000)))) mustEqual Some(username)
+        SecuredController.CookieRememberMe, "cookievalue", Some(10000)))) mustEqual Some(username)
     }
-
   }
 
   "#onUnauthorizedRest" should {
@@ -50,17 +47,16 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
     """return UNAUTHORIZED status with UNAUTHORIZED_REST message""" in fakeApp {
       val result: Result = SecuredController.onUnauthorizedRest(FakeRequest())
       status(result) mustEqual UNAUTHORIZED
-      contentAsString(result) mustEqual SecuredController.UNAUTHORIZED_REST
+      contentAsString(result) mustEqual SecuredController.UnauthorizedRest
     }
-
   }
 
   "#withAuthBase" should {
 
     def sendRequest(request: RequestHeader) = {
-      Await.result(SecuredController.withAuthBase({
+      Await.result(SecuredController.withAuthBase[AnyContent](){
         username => request => Ok(username)
-      })(request).run, 3 seconds)
+      }(request).run, 3 seconds)
     }
 
     "call onUnauthorized if username return None" in fakeApp {
@@ -72,7 +68,6 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
       status(response) mustEqual OK
       contentAsString(response) mustEqual username
     }
-
   }
 
   "#withUserBase" should {
@@ -81,7 +76,7 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
       user => request => Ok(user.email)
     }
 
-    val action: EssentialAction = SecuredController.withUserBase[SecureUser]()(f)
+    val action: EssentialAction = SecuredController.withUserBase()(f)
 
     def sendRequest(request: RequestHeader, action: EssentialAction = action) = {
       Await.result(action(request).run, 3 seconds)
@@ -99,35 +94,28 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
 
     "call onUnauthorized if userFilter() function NOT validate the user" in fakeApp {
       status(sendRequest(FakeRequest().withSession(testSession),
-        SecuredController.withUserBase[SecureUser](userFilter = {
-          _ => false
-        })(f))) mustEqual NOT_IMPLEMENTED
+        SecuredController.withUserBase[AnyContent](userFilter = _ => false)(f))) mustEqual NOT_IMPLEMENTED
     }
 
     "call f(user) if userFilter() function validate the user" in fakeApp {
       val response: Result = sendRequest(FakeRequest().withSession(testSession),
-        SecuredController.withUserBase[SecureUser](userFilter = {
-          _ => true
-        })(f))
+        SecuredController.withUserBase[AnyContent](userFilter = _ => true)(f))
 
       status(response) mustEqual OK
       contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
     }
 
     "call unauthF() if it is passed as parameter when user is NOT authorized" in fakeApp {
-      val response = sendRequest(FakeRequest(), SecuredController.withUserBase[SecureUser](
-        unauthF = request => BadRequest
-      )(f))
+      val response = sendRequest(FakeRequest(),
+        SecuredController.withUserBase[AnyContent](unauthF = request => BadRequest)(f))
       status(response) mustEqual BAD_REQUEST
     }
-
   }
-
 }
 
 
-object SecuredController extends Controller with Secured {
-  def secureUsersRetriever: SecureUsersRetriever = FakeUsersRetriever
+object SecuredController extends Controller with Secured[SecureUser] {
+  def secureUsersRetriever: SecureUsersRetriever[SecureUser] = FakeUsersRetriever
 
   /**
    * This function is called when user is not authorized,
@@ -140,7 +128,7 @@ object SecuredController extends Controller with Secured {
   def onUnauthorized(request: RequestHeader): Result = NotImplemented
 }
 
-object FakeUsersRetriever extends SecureUsersRetriever {
+object FakeUsersRetriever extends SecureUsersRetriever[SecureUser] {
 
   val username: String = "test@gmail.it"
 

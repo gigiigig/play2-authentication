@@ -15,12 +15,12 @@ import org.gg.play.authentication.misc.Loggable
  * Date: 05/09/13
  * Time: 11:50
  */
-trait Secured extends BodyParsers with Loggable {
+trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
 
-  val COOKIE_REMEMBER_ME: String = "PLAY_REMEMBER_ME"
-  val UNAUTHORIZED_REST = "not authorized"
+  val CookieRememberMe: String = "PLAY_REMEMBER_ME"
+  val UnauthorizedRest = "not authorized"
 
-  def secureUsersRetriever: SecureUsersRetriever
+  def secureUsersRetriever: SecureUsersRetriever[U]
 
   /**
    * Try to retrieve the username of the user,
@@ -36,14 +36,14 @@ trait Secured extends BodyParsers with Loggable {
 
     request.session.get(Security.username) match {
       case username: Some[String] =>
-        log debug "username from session : " + username.get + remoteAddress
+        // log debug "username from session : " + username.get + remoteAddress
         username
       case None =>
-        request.cookies.get(COOKIE_REMEMBER_ME) match {
+        request.cookies.get(CookieRememberMe) match {
           case None => None
           case Some(cookie) =>
             val email = secureUsersRetriever.findByRemember(cookie.value).map(_.email)
-            log debug "username from cookie : " + email.getOrElse("email not found") + "  cookie : " + cookie.value + remoteAddress
+            // log debug "username from cookie : " + email.getOrElse("email not found") + "  cookie : " + cookie.value + remoteAddress
             email
         }
     }
@@ -68,7 +68,7 @@ trait Secured extends BodyParsers with Loggable {
    */
   def onUnauthorizedRest(request: RequestHeader): Result = {
     log.debug(s"on onUnauthorized ip : ${request.remoteAddress}")
-    Results.Unauthorized(UNAUTHORIZED_REST)
+    Results.Unauthorized(UnauthorizedRest)
   }
 
   /**
@@ -100,15 +100,12 @@ trait Secured extends BodyParsers with Loggable {
             errorFuture
 
           case Some(username) =>
-            secureUsersRetriever.findByEmail(username).map {
-              user =>
-                f(user.id.get)
+            secureUsersRetriever.findByEmail(username).map { user =>
+              f(user.id.get)
             }.getOrElse(errorFuture)
 
         }
     }
-
-
   }
 
   /**
@@ -121,15 +118,13 @@ trait Secured extends BodyParsers with Loggable {
    * @param parser
    * @return
    */
-  def withAuthBase(f: => String => Request[_ >: AnyContent] => Result,
-                   unauthF: RequestHeader => Result = onUnauthorized,
-                   parser: BodyParser[_ >: AnyContent] = parse.anyContent): EssentialAction = {
+  def withAuthBase[T](parser: BodyParser[T] = parse.anyContent,
+                      unauthF: RequestHeader => Result = onUnauthorized)
+                     (f: => String => Request[T] => Result): EssentialAction = {
 
-    Security.Authenticated(username, unauthF) {
-      user =>
-        Action(parser)(request => f(user)(request))
+    Security.Authenticated(username, unauthF) { user =>
+      Action(parser)(request => f(user)(request))
     }
-
   }
 
   /**
@@ -147,19 +142,16 @@ trait Secured extends BodyParsers with Loggable {
    * @tparam T
    * @return
    */
-  def withUserBase[T <: SecureUser](unauthF: RequestHeader => Result = onUnauthorized,
-                                    parser: BodyParser[_ >: AnyContent] = parse.anyContent,
-                                    userFilter: SecureUser => Boolean = _ => true)
-                                   (f: T => Request[_ >: AnyContent] => Result): EssentialAction = {
+  def withUserBase[T](unauthF: RequestHeader => Result = onUnauthorized,
+                      parser: BodyParser[T] = parse.anyContent,
+                      userFilter: U => Boolean = _ => true)
+                     (f: U => Request[T] => Result): EssentialAction = {
 
-    withAuthBase({
-      username => implicit request =>
-        secureUsersRetriever.findByEmail(username).filter(userFilter).map {
-          user =>
-            f(user.asInstanceOf[T])(request)
-        }.getOrElse(unauthF(request))
-    }, unauthF, parser)
-
+    withAuthBase(parser, unauthF) { username => implicit request: Request[T] =>
+      secureUsersRetriever.findByEmail(username).filter(userFilter).map { user =>
+        f(user)(request)
+      }.getOrElse(unauthF(request))
+    }
   }
 
   /**
@@ -167,58 +159,52 @@ trait Secured extends BodyParsers with Loggable {
    * html actions, call onUnauthorized implementation if
    * user is not present
    *
-   * @tparam T
    * @return
    */
-  def withUser[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase() _
+  def withUser: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase() _
 
   /**
    * Default implementation for rest calls,
    * call onUnauthorizedRest if user not exists,
    * to use for standard rest GET
    *
-   * @tparam T
    * @return
    */
-  def withRestUser[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase(onUnauthorizedRest) _
+  def withRestUser: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(onUnauthorizedRest) _
 
   /**
    * This implementation must be used for rest calls,
    * when the request have a JSON body
    *
-   * @tparam T
    * @return
    */
-  def withJsonUser[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json) _
+  def withJsonUser: (U => Request[JsValue] => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json) _
 
   /**
    * Same as withUser call,
    * verify that user is admin
    *
-   * @tparam T
    * @return
    */
-  def withAdmin[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase(userFilter = _.isAdmin) _
-
-
-  /**
-   * Same as withUser call,
-   * verify that user is admin
-   *
-   * @tparam T
-   * @return
-   */
-  def withRestAdmin[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase(onUnauthorizedRest, userFilter = _.isAdmin) _
+  def withAdmin: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(userFilter = _.isAdmin) _
 
 
   /**
    * Same as withUser call,
    * verify that user is admin
    *
-   * @tparam T
    * @return
    */
-  def withJsonAdmin[T <: SecureUser]: ((T) => (Request[_ >: AnyContent]) => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json, userFilter = _.isAdmin) _
+  def withRestAdmin: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(onUnauthorizedRest, userFilter = _.isAdmin) _
+
+
+  /**
+   * Same as withUser call,
+   * verify that user is admin
+   *
+   * @return
+   */
+  def withJsonAdmin: (U => Request[JsValue]  => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json, userFilter = _.isAdmin)
 
 }
 
@@ -227,10 +213,10 @@ trait Secured extends BodyParsers with Loggable {
  * secured trait to load user from database
  *
  */
-trait SecureUsersRetriever {
-  def findByEmail(email: String): Option[SecureUser]
+trait SecureUsersRetriever[U <: SecureUser] {
+  def findByEmail(email: String): Option[U]
 
-  def findByRemember(cookie: String): Option[SecureUser]
+  def findByRemember(cookie: String): Option[U]
 }
 
 /**
