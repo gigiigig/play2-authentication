@@ -9,9 +9,6 @@ object ApplicationBuild extends Build {
   val appVersion = "0.2.1"
 
   val appDependencies = Seq(
-    // Add your project dependencies here,
-    jdbc,
-    anorm,
     "commons-codec" % "commons-codec" % "1.7"
   )
 
