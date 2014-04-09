@@ -1,6 +1,6 @@
 package org.gg.play.authentication.auth
 
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
 
 import org.specs2.mutable._
@@ -8,7 +8,7 @@ import org.gg.play.authentication.misc.Loggable
 import play.api.mvc._
 import play.api.mvc.Results._
 import play.api.test.Helpers._
-import play.api.test.FakeRequest
+import play.api.test.{PlaySpecification, FakeRequest}
 import auth.BaseSpec
 
 /**
@@ -16,7 +16,7 @@ import auth.BaseSpec
  * Date: 06/09/13
  * Time: 14:18
  */
-class SecuredSpec extends Specification with Loggable with DeactivatedTimeConversions with BaseSpec {
+class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeConversions with BaseSpec {
 
   import FakeUsersRetriever._
 
@@ -45,7 +45,7 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
   "#onUnauthorizedRest" should {
 
     """return UNAUTHORIZED status with UNAUTHORIZED_REST message""" in fakeApp {
-      val result: Result = SecuredController.onUnauthorizedRest(FakeRequest())
+      val result = Future.successful(SecuredController.onUnauthorizedRest(FakeRequest()))
       status(result) mustEqual UNAUTHORIZED
       contentAsString(result) mustEqual SecuredController.UnauthorizedRest
     }
@@ -54,9 +54,9 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
   "#withAuthBase" should {
 
     def sendRequest(request: RequestHeader) = {
-      Await.result(SecuredController.withAuthBase[AnyContent](){
+      SecuredController.withAuthBase[AnyContent](){
         username => request => Ok(username)
-      }(request).run, 3 seconds)
+      }(request).run
     }
 
     "call onUnauthorized if username return None" in fakeApp {
@@ -72,14 +72,14 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
 
   "#withUserBase" should {
 
-    val f: (SecureUser) => (Request[_ >: AnyContent]) => SimpleResult[String] = {
+    val f: (SecureUser) => (Request[_ >: AnyContent]) => SimpleResult = {
       user => request => Ok(user.email)
     }
 
     val action: EssentialAction = SecuredController.withUserBase()(f)
 
     def sendRequest(request: RequestHeader, action: EssentialAction = action) = {
-      Await.result(action(request).run, 3 seconds)
+      action(request).run
     }
 
     "call onUnauthorized if username return None" in fakeApp {
@@ -98,7 +98,7 @@ class SecuredSpec extends Specification with Loggable with DeactivatedTimeConver
     }
 
     "call f(user) if userFilter() function validate the user" in fakeApp {
-      val response: Result = sendRequest(FakeRequest().withSession(testSession),
+      val response = sendRequest(FakeRequest().withSession(testSession),
         SecuredController.withUserBase[AnyContent](userFilter = _ => true)(f))
 
       status(response) mustEqual OK
@@ -125,7 +125,7 @@ object SecuredController extends Controller with Secured[SecureUser] {
    * @param request
    * @return
    */
-  def onUnauthorized(request: RequestHeader): Result = NotImplemented
+  def onUnauthorized(request: RequestHeader): SimpleResult = NotImplemented
 }
 
 object FakeUsersRetriever extends SecureUsersRetriever[SecureUser] {
