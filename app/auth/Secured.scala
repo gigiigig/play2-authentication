@@ -101,7 +101,7 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
 
           case Some(username) =>
             secureUsersRetriever.findByEmail(username).map { user =>
-              f(user.id.get)
+              f(user.id)
             }.getOrElse(errorFuture)
 
         }
@@ -223,7 +223,7 @@ trait SecureUsersRetriever[U <: SecureUser] {
  * Mi that trait in User implementation
  */
 trait SecureUser {
-  def id: Option[Int]
+  def id: Int
 
   def email: String
 

@@ -141,7 +141,7 @@ object FakeUsersRetriever extends SecureUsersRetriever[SecureUser] {
 
     def email: String = username
 
-    def id: Option[Int] = Some(1)
+    def id: Int = 1
   })
 
 }
