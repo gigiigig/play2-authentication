@@ -7,6 +7,4 @@ resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/release
 // Use the Play sbt plugin for Play projects
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.2.2")
 
-addSbtPlugin("org.ensime" % "ensime-sbt-cmd" % "0.1.1")
-
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8.3")
