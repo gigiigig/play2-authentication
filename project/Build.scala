@@ -6,7 +6,7 @@ import sbtrelease.ReleasePlugin._
 object ApplicationBuild extends Build {
 
   val appName = "Authentication"
-  val appVersion = "1.0-SNAPSHOT"
+  val appVersion = "0.2.1"
 
   val appDependencies = Seq(
     // Add your project dependencies here,
