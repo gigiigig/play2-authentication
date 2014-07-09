@@ -1,17 +1,18 @@
 package org.gg.play.authentication.auth
 
-import org.apache.commons.codec.binary.Base64
+import scala.concurrent.Await
+import scala.concurrent.Future
 
+import org.apache.commons.codec.binary.Base64
+import org.gg.play.authentication.misc.Loggable
+
+import play.api.Play.current
 import play.api.mvc._
 import play.api.mvc.Results._
 import play.api.libs.json.Json
 import play.api.libs.ws
 import play.api.libs.ws.WS
 import play.api.libs.concurrent.Execution.Implicits._
-
-import scala.concurrent.Await
-import org.gg.play.authentication.misc.Loggable
-
 
 /**
  * User: luigi
@@ -46,7 +47,7 @@ trait OAuth extends Loggable {
       "grant_type" -> Seq("authorization_code")
     )
 
-  def oauth(provider: String) = Action {
+  def oauth(provider: String) = Action.async {
 
     request =>
       val code = request.getQueryString("code")
@@ -59,23 +60,21 @@ trait OAuth extends Loggable {
 
       providerImpl match {
 
-        case NotProvider => BadRequest("provider not exist")
+        case NotProvider => Future.successful(BadRequest("provider not exist"))
         case _ =>
 
           code match {
 
             case Some(c) =>
-              Async {
-                WS.url(providerImpl.OAUTH2_TOKEN_URL).post(tokenQuery(c, request, providerImpl)) map {
-                  response =>
-                    val email = providerImpl.getEmail(response)
+              WS.url(providerImpl.OAUTH2_TOKEN_URL).post(tokenQuery(c, request, providerImpl)) map {
+                response =>
+                  val email = providerImpl.getEmail(response)
 
-                    useEmail(email, providerImpl.NAME)
+                  useEmail(email, providerImpl.NAME)
 
-                }
               }
 
-            case None => Redirect(providerImpl.OAUTH2_CODE_URL, codeQuery(request, providerImpl))
+            case None => Future.successful(Redirect(providerImpl.OAUTH2_CODE_URL, codeQuery(request, providerImpl)))
           }
       }
   }

@@ -1,10 +1,11 @@
 name := "Authentication"
   
+lazy val root = (project in file(".")).enablePlugins(PlayScala)
+
 libraryDependencies ++= Seq(
+  ws,
   "commons-codec" % "commons-codec" % "1.7"
 )
-
-play.Project.playScalaSettings
 
 releaseSettings
 
