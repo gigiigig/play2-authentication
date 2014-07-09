@@ -1,6 +1,7 @@
 import sbt._
 import Keys._
 import play.Project._
+import sbtrelease.ReleasePlugin._ 
 
 object ApplicationBuild extends Build {
 
@@ -14,11 +15,10 @@ object ApplicationBuild extends Build {
     "commons-codec" % "commons-codec" % "1.7"
   )
 
-  val main = play.Project(appName, appVersion, appDependencies).settings(
-    // Add your own project settings here    
-    publishTo <<= version {
+  val cusotmSettings = releaseSettings :+ (publishTo <<= version {
       case _ => Some(Resolver.file("Github Pages", Path.userHome / "Workspace" / "IdeaWorkspace" / "gigiigig.github.com" / "releases" asFile))
-    }
-  )
+    }) 
+
+  val main = play.Project(appName, appVersion, appDependencies).settings(cusotmSettings:_*)
 
 }

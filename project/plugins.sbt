@@ -8,3 +8,5 @@ resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/release
 addSbtPlugin("play" % "sbt-plugin" % "2.1.5")
 
 addSbtPlugin("org.ensime" % "ensime-sbt-cmd" % "0.1.1")
+
+addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8.3")
