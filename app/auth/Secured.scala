@@ -120,10 +120,10 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    */
   def withAuthBase[T](parser: BodyParser[T] = parse.anyContent,
                       unauthF: RequestHeader => Result = onUnauthorized)
-                     (f: => String => Request[T] => Result): EssentialAction = {
+                     (f: => String => Request[T] => Future[Result]): EssentialAction = {
 
     Security.Authenticated(username, unauthF) { user =>
-      Action(parser)(request => f(user)(request))
+      Action.async(parser)(request => f(user)(request))
     }
   }
 
@@ -145,12 +145,12 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
   def withUserBase[T](unauthF: RequestHeader => Result = onUnauthorized,
                       parser: BodyParser[T] = parse.anyContent,
                       userFilter: U => Boolean = _ => true)
-                     (f: U => Request[T] => Result): EssentialAction = {
+                     (f: U => Request[T] => Future[Result]): EssentialAction = {
 
     withAuthBase(parser, unauthF) { username => implicit request: Request[T] =>
       secureUsersRetriever.findByEmail(username).filter(userFilter).map { user =>
         f(user)(request)
-      }.getOrElse(unauthF(request))
+      }.getOrElse(Future.successful(unauthF(request)))
     }
   }
 
@@ -161,7 +161,7 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    *
    * @return
    */
-  def withUser: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase() _
+  def withUser: (U => Request[AnyContent] => Future[Result]) => EssentialAction = withUserBase() _
 
   /**
    * Default implementation for rest calls,
@@ -170,7 +170,7 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    *
    * @return
    */
-  def withRestUser: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(onUnauthorizedRest) _
+  def withRestUser: (U => Request[AnyContent] => Future[Result]) => EssentialAction = withUserBase(onUnauthorizedRest) _
 
   /**
    * This implementation must be used for rest calls,
@@ -178,7 +178,7 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    *
    * @return
    */
-  def withJsonUser: (U => Request[JsValue] => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json) _
+  def withJsonUser: (U => Request[JsValue] => Future[Result]) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json) _
 
   /**
    * Same as withUser call,
@@ -186,16 +186,7 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    *
    * @return
    */
-  def withAdmin: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(userFilter = _.isAdmin) _
-
-
-  /**
-   * Same as withUser call,
-   * verify that user is admin
-   *
-   * @return
-   */
-  def withRestAdmin: (U => Request[AnyContent] => Result) => EssentialAction = withUserBase(onUnauthorizedRest, userFilter = _.isAdmin) _
+  def withAdmin: (U => Request[AnyContent] => Future[Result]) => EssentialAction = withUserBase(userFilter = _.isAdmin) _
 
 
   /**
@@ -204,7 +195,16 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    *
    * @return
    */
-  def withJsonAdmin: (U => Request[JsValue]  => Result) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json, userFilter = _.isAdmin)
+  def withRestAdmin: (U => Request[AnyContent] => Future[Result]) => EssentialAction = withUserBase(onUnauthorizedRest, userFilter = _.isAdmin) _
+
+
+  /**
+   * Same as withUser call,
+   * verify that user is admin
+   *
+   * @return
+   */
+  def withJsonAdmin: (U => Request[JsValue]  => Future[Result]) => EssentialAction = withUserBase(onUnauthorizedRest, parse.json, userFilter = _.isAdmin)
 
 }
 

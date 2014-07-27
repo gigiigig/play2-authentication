@@ -55,7 +55,7 @@ class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeCo
 
     def sendRequest(request: RequestHeader) = {
       SecuredController.withAuthBase[AnyContent](){
-        username => request => Ok(username)
+        username => request => Future.successful(Ok(username))
       }(request).run
     }
 
@@ -72,8 +72,8 @@ class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeCo
 
   "#withUserBase" should {
 
-    val f: (SecureUser) => (Request[_ >: AnyContent]) => SimpleResult = {
-      user => request => Ok(user.email)
+    val f: (SecureUser) => (Request[_ >: AnyContent]) => Future[Result] = {
+      user => request => Future.successful(Ok(user.email))
     }
 
     val action: EssentialAction = SecuredController.withUserBase()(f)
@@ -125,7 +125,7 @@ object SecuredController extends Controller with Secured[SecureUser] {
    * @param request
    * @return
    */
-  def onUnauthorized(request: RequestHeader): SimpleResult = NotImplemented
+  def onUnauthorized(request: RequestHeader): Result = NotImplemented
 }
 
 object FakeUsersRetriever extends SecureUsersRetriever[SecureUser] {
