@@ -27,18 +27,17 @@ class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeCo
   "#username" should {
 
     "return None if username is nor in session neither in remember cookie" in fakeApp {
-      SecuredController.username(FakeRequest()) must beNone
+      SecuredController.username(FakeRequest()) must beNone.await
     }
 
     "return Some(username) if username is in session" in fakeApp {
-      SecuredController.username(FakeRequest()
-        .withSession(testSession)) mustEqual Some(username)
+      SecuredController.username(FakeRequest().withSession(testSession)) map (_ mustEqual Some(username)) await
     }
 
     "return Some(username) if username is in remember cookie" in fakeApp {
-      SecuredController.username(FakeRequest()
-        .withCookies(Cookie(
-        SecuredController.CookieRememberMe, "cookievalue", Some(10000)))) mustEqual Some(username)
+      SecuredController.username(
+        FakeRequest().withCookies(Cookie(
+        SecuredController.CookieRememberMe, "cookievalue", Some(10000)))) map (_ mustEqual Some(username)) await
     }
   }
 
@@ -89,7 +88,7 @@ class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeCo
     "call f(user) with the user loaded from database and return the f() => Action" in fakeApp {
       val response = sendRequest(FakeRequest().withSession(testSession))
       status(response) mustEqual OK
-      contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
+      FakeUsersRetriever.fakeUser.map(_.get.email) map (contentAsString(response) mustEqual _) await
     }
 
     "call onUnauthorized if userFilter() function NOT validate the user" in fakeApp {
@@ -102,7 +101,9 @@ class SecuredSpec extends PlaySpecification with Loggable with DeactivatedTimeCo
         SecuredController.withUserBase[AnyContent](userFilter = _ => true)(f))
 
       status(response) mustEqual OK
-      contentAsString(response) mustEqual FakeUsersRetriever.fakeUser.get.email
+      FakeUsersRetriever.fakeUser.map(_.get.email).map { email =>
+        contentAsString(response) mustEqual email
+      }.await
     }
 
     "call unauthF() if it is passed as parameter when user is NOT authorized" in fakeApp {
@@ -132,17 +133,17 @@ object FakeUsersRetriever extends SecureUsersRetriever[SecureUser] {
 
   val username: String = "test@gmail.it"
 
-  def findByEmail(email: String): Option[SecureUser] = fakeUser
+  def findByEmail(email: String): Future[Option[SecureUser]] = fakeUser
 
-  def findByRemember(cookie: String): Option[SecureUser] = fakeUser
+  def findByRemember(cookie: String): Future[Option[SecureUser]] = fakeUser
 
-  def fakeUser = Some(new SecureUser {
+  def fakeUser = Future.successful(Some(new SecureUser {
     def isAdmin: Boolean = false
 
     def email: String = username
 
     def id: Int = 1
-  })
+  }))
 
 }
 

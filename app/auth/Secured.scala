@@ -1,9 +1,10 @@
 package org.gg.play.authentication.auth
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import play.api.mvc._
-import play.api.libs.iteratee.{Enumerator, Iteratee}
+import play.api.libs.iteratee.{Done, Input, Enumerator, Iteratee}
 import play.api.libs.json.{Json, JsValue}
 import play.api.libs.concurrent.Execution.Implicits._
 
@@ -30,19 +31,19 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    * @param request
    * @return
    */
-  def username(request: RequestHeader): Option[String] = {
+  def username(request: RequestHeader): Future[Option[String]] = {
 
     val remoteAddress = s"  ip : ${request.remoteAddress}"
 
     request.session.get(Security.username) match {
       case username: Some[String] =>
         // log debug "username from session : " + username.get + remoteAddress
-        username
+        Future.successful(username)
       case None =>
         request.cookies.get(CookieRememberMe) match {
-          case None => None
+          case None => Future.successful(None)
           case Some(cookie) =>
-            val email = secureUsersRetriever.findByRemember(cookie.value).map(_.email)
+            val email = secureUsersRetriever.findByRemember(cookie.value).map(_.map(_.email))
             // log debug "username from cookie : " + email.getOrElse("email not found") + "  cookie : " + cookie.value + remoteAddress
             email
         }
@@ -88,23 +89,20 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
       // Send a single 'Hello!' message and close
       val out = Enumerator(Json.toJson("not authorized")).andThen(Enumerator.eof)
 
-      Future {
+      Future.successful {
         (in, out)
       }
     }
 
-    WebSocket.async[JsValue] {
-      request =>
-        username(request) match {
-          case None =>
-            errorFuture
-
-          case Some(username) =>
-            secureUsersRetriever.findByEmail(username).map { user =>
-              f(user.id)
-            }.getOrElse(errorFuture)
-
-        }
+    WebSocket.async[JsValue] { request =>
+      username(request).flatMap(_ match {
+        case None =>
+          errorFuture
+        case Some(username) =>
+          secureUsersRetriever.findByEmail(username).flatMap(_.map { user =>
+            f(user.id)
+          }.getOrElse(errorFuture))
+      })
     }
   }
 
@@ -121,9 +119,12 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
   def withAuthBase[T](parser: BodyParser[T] = parse.anyContent,
                       unauthF: RequestHeader => Result = onUnauthorized)
                      (f: => String => Request[T] => Future[Result]): EssentialAction = {
-
-    Security.Authenticated(username, unauthF) { user =>
-      Action.async(parser)(request => f(user)(request))
+    Action.async(parser) { request =>
+      username(request).flatMap(_.map { user =>
+        f(user)(request)
+      }.getOrElse {
+        Future.successful(unauthF(request))
+      })
     }
   }
 
@@ -148,9 +149,9 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
                      (f: U => Request[T] => Future[Result]): EssentialAction = {
 
     withAuthBase(parser, unauthF) { username => implicit request: Request[T] =>
-      secureUsersRetriever.findByEmail(username).filter(userFilter).map { user =>
+      secureUsersRetriever.findByEmail(username).flatMap(_.filter(userFilter).map { user =>
         f(user)(request)
-      }.getOrElse(Future.successful(unauthF(request)))
+      }.getOrElse(Future.successful(unauthF(request))))
     }
   }
 
@@ -214,9 +215,9 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
  *
  */
 trait SecureUsersRetriever[U <: SecureUser] {
-  def findByEmail(email: String): Option[U]
+  def findByEmail(email: String): Future[Option[U]]
 
-  def findByRemember(cookie: String): Option[U]
+  def findByRemember(cookie: String): Future[Option[U]]
 }
 
 /**
