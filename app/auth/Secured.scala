@@ -1,9 +1,9 @@
 package org.gg.play.authentication.auth
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import play.api.mvc._
+import play.api.mvc.Results._
 import play.api.libs.iteratee.{Done, Input, Enumerator, Iteratee}
 import play.api.libs.json.{Json, JsValue}
 import play.api.libs.concurrent.Execution.Implicits._
@@ -82,26 +82,16 @@ trait Secured[U <: SecureUser] extends BodyParsers with Loggable {
    */
   def withAuthWS(f: => Int => Future[(Iteratee[JsValue, Unit], Enumerator[JsValue])]): WebSocket[JsValue, JsValue] = {
 
-    def errorFuture = {
-      // Just consume and ignore the input
-      val in = Iteratee.ignore[JsValue]
+    def error(request: RequestHeader) = Future.successful(Left(onUnauthorizedRest(request)))
 
-      // Send a single 'Hello!' message and close
-      val out = Enumerator(Json.toJson("not authorized")).andThen(Enumerator.eof)
-
-      Future.successful {
-        (in, out)
-      }
-    }
-
-    WebSocket.async[JsValue] { request =>
+    WebSocket.tryAccept[JsValue] { request =>
       username(request).flatMap(_ match {
         case None =>
-          errorFuture
+          error(request)
         case Some(username) =>
           secureUsersRetriever.findByEmail(username).flatMap(_.map { user =>
-            f(user.id)
-          }.getOrElse(errorFuture))
+            f(user.id).map(Right(_))
+          }.getOrElse(error(request)))
       })
     }
   }

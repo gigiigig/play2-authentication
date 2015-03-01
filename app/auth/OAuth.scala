@@ -100,7 +100,7 @@ trait OAuth extends Loggable {
  */
 trait OAuthProvider {
 
-  import play.api.libs.ws.Response
+  import play.api.libs.ws.WSResponse
   import play.api.Play.current
 
   def NAME: String
@@ -120,7 +120,7 @@ trait OAuthProvider {
    * @param response
    * @return
    */
-  def getEmail(response: Response): String
+  def getEmail(response: WSResponse): String
 
 }
 
@@ -130,14 +130,14 @@ trait OAuthProvider {
  */
 object GoogleProvider extends OAuthProvider with Loggable {
 
-  import play.api.libs.ws.Response
+  import play.api.libs.ws.WSResponse
 
   val NAME = "google"
 
   val OAUTH2_CODE_URL = "https://accounts.google.com/o/oauth2/auth"
   val OAUTH2_TOKEN_URL = "https://accounts.google.com/o/oauth2/token"
 
-  def getEmail(response: Response): String = {
+  def getEmail(response: WSResponse): String = {
     val idToken = (response.json \ "id_token").as[String].split("\\.")(1)
     val json: String = new String(Base64.decodeBase64(idToken))
     val email = (Json.parse(json) \ "email").as[String]
@@ -152,14 +152,14 @@ object GoogleProvider extends OAuthProvider with Loggable {
  */
 object FacebookProvider extends OAuthProvider with Loggable {
 
-  import play.api.libs.ws.Response
+  import play.api.libs.ws.WSResponse
 
   val NAME = "facebook"
 
   val OAUTH2_CODE_URL = "https://www.facebook.com/dialog/oauth"
   val OAUTH2_TOKEN_URL = "https://graph.facebook.com/oauth/access_token"
 
-  def getEmail(response: Response): String = {
+  def getEmail(response: WSResponse): String = {
 
     val accessToken = response.body
 
@@ -186,5 +186,5 @@ object NotProvider extends OAuthProvider {
 
   def OAUTH2_TOKEN_URL: String = ???
 
-  def getEmail(response: ws.Response): String = ???
+  def getEmail(response: ws.WSResponse): String = ???
 }
