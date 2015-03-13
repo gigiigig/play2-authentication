@@ -13,4 +13,6 @@ crossScalaVersions := Seq("2.10.4", "2.11.1")
 
 publishTo := Some(Resolver.file("Github Pages", Path.userHome / "Workspace" / "IdeaWorkspace" / "gigiigig.github.com" / "releases" asFile))
 
+testOptions in Test += Tests.Argument(TestFrameworks.Specs2, "junitxml")
+
 // foo
