@@ -1,5 +1,6 @@
 package org.gg.play.authentication.auth
 
+import scala.concurrent.Future
 import org.specs2.mutable._
 import org.gg.play.authentication.misc.Loggable
 
@@ -89,7 +90,7 @@ object OAuthController extends OAuth {
    * @param email
    * @return
    */
-  def useEmail(email: String, provider: String): Result = Ok(s"${email}:${provider}")
+  def useEmail(email: String, provider: String): Future[Result] = Future.successful(Ok(s"${email}:${provider}"))
 
   /**
    * Return the redirect url for oauth
