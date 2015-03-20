@@ -66,12 +66,9 @@ trait OAuth extends Loggable {
           code match {
 
             case Some(c) =>
-              WS.url(providerImpl.OAUTH2_TOKEN_URL).post(tokenQuery(c, request, providerImpl)) map {
-                response =>
-                  val email = providerImpl.getEmail(response)
-
-                  useEmail(email, providerImpl.NAME)
-
+              WS.url(providerImpl.OAUTH2_TOKEN_URL).post(tokenQuery(c, request, providerImpl)) flatMap { response =>
+                val email = providerImpl.getEmail(response)
+                useEmail(email, providerImpl.NAME)
               }
 
             case None => Future.successful(Redirect(providerImpl.OAUTH2_CODE_URL, codeQuery(request, providerImpl)))
@@ -86,7 +83,7 @@ trait OAuth extends Loggable {
    * @param email
    * @return
    */
-  def useEmail(email: String, provider: String): Result
+  def useEmail(email: String, provider: String): Future[Result]
 
   /**
    * Return the redirect url for oauth
